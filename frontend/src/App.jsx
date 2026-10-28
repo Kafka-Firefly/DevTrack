@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import DashboardView from './DashboardView'
 import TasksView from './TasksView'
 import './App.css'
 
@@ -109,7 +110,10 @@ function ProjectDialog({ project, onClose, onSave }) {
 }
 
 function App() {
-  const [activePage, setActivePage] = useState(() => window.location.hash === '#tasks' ? 'tasks' : 'projects')
+  const [activePage, setActivePage] = useState(() => {
+    const page = window.location.hash.slice(1)
+    return ['overview', 'projects', 'tasks'].includes(page) ? page : 'projects'
+  })
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [apiConnected, setApiConnected] = useState(false)
@@ -135,6 +139,15 @@ function App() {
       })
       .finally(() => setLoading(false))
     return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    function syncPageWithHash() {
+      const page = window.location.hash.slice(1)
+      setActivePage(['overview', 'projects', 'tasks'].includes(page) ? page : 'projects')
+    }
+    window.addEventListener('hashchange', syncPageWithHash)
+    return () => window.removeEventListener('hashchange', syncPageWithHash)
   }, [])
 
   const filteredProjects = useMemo(() => {
@@ -192,8 +205,8 @@ function App() {
 
         <div className="nav-label">WORKSPACE</div>
         <nav className="side-nav" aria-label="Main navigation">
-          <a className="nav-item" href="#overview" aria-disabled="true" onClick={(event) => event.preventDefault()}>
-            <Icon name="grid" /><span>Overview</span><span className="nav-soon">Soon</span>
+          <a className={`nav-item${activePage === 'overview' ? ' active' : ''}`} href="#overview" aria-current={activePage === 'overview' ? 'page' : undefined} onClick={() => setActivePage('overview')}>
+            <Icon name="grid" /><span>Overview</span>
           </a>
           <a className={`nav-item${activePage === 'projects' ? ' active' : ''}`} href="#projects" aria-current={activePage === 'projects' ? 'page' : undefined} onClick={() => setActivePage('projects')}>
             <Icon name="folder" /><span>Projects</span><span className="nav-count">{projects.length}</span>
@@ -214,7 +227,7 @@ function App() {
 
       <main className="main-content" id={activePage}>
         <header className="topbar">
-          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{activePage === 'tasks' ? 'Tasks' : 'Projects'}</strong></div>
+          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{activePage === 'tasks' ? 'Tasks' : activePage === 'overview' ? 'Overview' : 'Projects'}</strong></div>
           <div className="topbar-right"><span className={`connection-state${apiConnected ? '' : ' disconnected'}`}><span /> {apiConnected ? 'API connected' : loading ? 'Connecting' : 'API offline'}</span><div className="topbar-avatar">Y</div></div>
         </header>
 
@@ -261,7 +274,7 @@ function App() {
           )}
 
           <footer className="page-footer"><span>DevTrack</span><span>Built for thoughtful progress</span></footer>
-        </div> : <TasksView onOpenProjects={() => { setActivePage('projects'); window.location.hash = 'projects' }} />}
+        </div> : activePage === 'tasks' ? <TasksView onOpenProjects={() => { setActivePage('projects'); window.location.hash = 'projects' }} /> : <DashboardView onOpenProjects={() => { setActivePage('projects'); window.location.hash = 'projects' }} onOpenTasks={() => { setActivePage('tasks'); window.location.hash = 'tasks' }} />}
       </main>
 
       {dialogOpen && <ProjectDialog project={editingProject} onClose={() => setDialogOpen(false)} onSave={saveProject} />}

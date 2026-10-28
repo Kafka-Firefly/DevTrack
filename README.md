@@ -11,12 +11,13 @@ DevTrack is a student project and task tracking app. This repository currently c
 - Create, view, edit, delete, and filter tasks by status
 - Set a task's project, status, priority, and optional due date
 - Django REST API for task list and detail operations at `/api/tasks/`
+- Workspace dashboard with project and task totals, overdue and upcoming tasks, status breakdown, and per-project completion
 - SQLite storage for local development
 - Django health endpoint at `/api/health/`
 
 ## Planned
 
-- Dashboard and reporting
+- Advanced reporting and charts
 - User registration and authentication
 - Team workspaces
 
