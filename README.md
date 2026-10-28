@@ -8,7 +8,8 @@ DevTrack is a student project and task tracking app built with React, Vite, Djan
 - Create projects with a name, optional description, and optional target date
 - View, edit, and delete projects from the projects page
 - Django REST API to list and create projects at `/api/projects/`, and retrieve, update, or delete a project at `/api/projects/<id>/`
-- Create, view, edit, delete, and filter tasks by status
+- Create, view, edit, delete, and filter tasks by status, priority, due date, or search text
+- Sort tasks by due date, with overdue items clearly marked and undated tasks last
 - Set a task's project, status, priority, and optional due date
 - Django REST API for task list and detail operations at `/api/tasks/`
 - Workspace dashboard with project and task totals, overdue and upcoming tasks, status breakdown, and per-project completion

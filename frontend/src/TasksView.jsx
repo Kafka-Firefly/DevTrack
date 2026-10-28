@@ -19,6 +19,14 @@ function formatDate(value) {
   return new Date(`${value}T00:00:00`).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function dateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function taskIsOverdue(task, todayValue) {
+  return Boolean(task.status !== 'done' && task.due_date && task.due_date < todayValue)
+}
+
 function TaskDialog({ task, projects, onClose, onSave }) {
   const [title, setTitle] = useState(task?.title ?? '')
   const [description, setDescription] = useState(task?.description ?? '')
@@ -103,7 +111,7 @@ function TaskDialog({ task, projects, onClose, onSave }) {
   )
 }
 
-function TaskRow({ task, onEdit, onDelete, onStatusChange }) {
+function TaskRow({ task, todayValue, onEdit, onDelete, onStatusChange }) {
   const statusLabel = STATUS_OPTIONS.find((item) => item.value === task.status)?.label ?? task.status
   return (
     <article className={`task-row${task.status === 'done' ? ' task-row-done' : ''}`}>
@@ -114,7 +122,7 @@ function TaskRow({ task, onEdit, onDelete, onStatusChange }) {
         <div className="task-meta">
           <span className="task-project"><span className="task-project-dot" />{task.project_name}</span>
           <span className="task-meta-divider" />
-          <span>{formatDate(task.due_date)}</span>
+          <span className={taskIsOverdue(task, todayValue) ? 'task-date-overdue' : ''}>{taskIsOverdue(task, todayValue) ? 'Overdue · ' : ''}{formatDate(task.due_date)}</span>
         </div>
       </div>
       <span className={`priority-pill priority-${task.priority}`}>{task.priority}</span>
@@ -140,6 +148,15 @@ export default function TasksView({ onOpenProjects }) {
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
   const [filter, setFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('all')
+  const [dueFilter, setDueFilter] = useState('all')
+  const [dateRange] = useState(() => {
+    const today = new Date()
+    const weekAhead = new Date(today)
+    weekAhead.setDate(weekAhead.getDate() + 7)
+    return { today: dateKey(today), weekAhead: dateKey(weekAhead) }
+  })
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
 
@@ -164,7 +181,25 @@ export default function TasksView({ onOpenProjects }) {
     return () => controller.abort()
   }, [])
 
-  const filteredTasks = useMemo(() => filter === 'all' ? tasks : tasks.filter((task) => task.status === filter), [filter, tasks])
+  const filteredTasks = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return tasks
+      .filter((task) => filter === 'all' || task.status === filter)
+      .filter((task) => !query || `${task.title} ${task.description} ${task.project_name}`.toLowerCase().includes(query))
+      .filter((task) => priorityFilter === 'all' || task.priority === priorityFilter)
+      .filter((task) => {
+        if (dueFilter === 'overdue') return taskIsOverdue(task, dateRange.today)
+        if (dueFilter === 'upcoming') return task.status !== 'done' && task.due_date >= dateRange.today && task.due_date <= dateRange.weekAhead
+        if (dueFilter === 'no-date') return !task.due_date
+        return true
+      })
+      .sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0
+        if (!a.due_date) return 1
+        if (!b.due_date) return -1
+        return a.due_date.localeCompare(b.due_date)
+      })
+  }, [tasks, filter, search, priorityFilter, dueFilter, dateRange])
   const openCount = tasks.filter((task) => task.status !== 'done').length
   const doneCount = tasks.length - openCount
 
@@ -226,10 +261,22 @@ export default function TasksView({ onOpenProjects }) {
       </section>
 
       <div className="task-toolbar">
-        <div className="section-heading-row task-heading"><div><h2>All tasks</h2><span className="section-count">{tasks.length}</span></div></div>
+        <div className="section-heading-row task-heading"><div><h2>All tasks</h2><span className="section-count">{tasks.length}</span><span className="task-result-count">{filteredTasks.length} shown</span></div></div>
         <div className="task-filters" role="group" aria-label="Filter tasks by status">
-          {[{ value: 'all', label: 'All' }, ...STATUS_OPTIONS].map((item) => <button key={item.value} className={`task-filter${filter === item.value ? ' active' : ''}`} type="button" onClick={() => setFilter(item.value)}>{item.label}{item.value === 'all' && <span>{tasks.length}</span>}</button>)}
+          {[{ value: 'all', label: 'All' }, ...STATUS_OPTIONS].map((item) => <button key={item.value} className={`task-filter${filter === item.value ? ' active' : ''}`} type="button" onClick={() => setFilter(item.value)} aria-pressed={filter === item.value}>{item.label}<span>{item.value === 'all' ? tasks.length : tasks.filter((task) => task.status === item.value).length}</span></button>)}
         </div>
+      </div>
+
+      <div className="task-controls">
+        <label className="search-box task-search">
+          <input aria-label="Search tasks" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks or projects" />
+          {search && <button className="search-clear" type="button" onClick={() => setSearch('')} aria-label="Clear task search">×</button>}
+        </label>
+        <div className="task-priority-filters" role="group" aria-label="Filter tasks by priority">
+          <span>Priority</span>
+          {[{ value: 'all', label: 'Any' }, ...PRIORITIES.slice().reverse()].map((item) => <button key={item.value} className={`priority-filter${priorityFilter === item.value ? ' active' : ''}`} type="button" onClick={() => setPriorityFilter(item.value)} aria-pressed={priorityFilter === item.value}>{item.label}</button>)}
+        </div>
+        <label className="task-due-filter"><span>Due date</span><select aria-label="Filter tasks by due date" value={dueFilter} onChange={(event) => setDueFilter(event.target.value)}><option value="all">Any date</option><option value="overdue">Overdue</option><option value="upcoming">Next 7 days</option><option value="no-date">No due date</option></select></label>
       </div>
 
       {actionError && <p className="action-error" role="alert">{actionError}</p>}
@@ -240,9 +287,9 @@ export default function TasksView({ onOpenProjects }) {
       ) : !projects.length ? (
         <div className="state-panel empty-panel"><div className="empty-icon">⌂</div><strong>Create a project first</strong><p>Tasks belong to a project, so set up a project before adding its tasks.</p><button className="button button-secondary" type="button" onClick={onOpenProjects}>Go to projects</button></div>
       ) : filteredTasks.length ? (
-        <div className="task-list">{filteredTasks.map((task) => <TaskRow key={task.id} task={task} onEdit={(item) => { setEditingTask(item); setDialogOpen(true) }} onDelete={deleteTask} onStatusChange={changeStatus} />)}</div>
-      ) : filter !== 'all' ? (
-        <div className="state-panel empty-panel"><div className="empty-icon">✓</div><strong>No {STATUS_OPTIONS.find((item) => item.value === filter)?.label.toLowerCase()} tasks</strong><p>Tasks with this status will appear here.</p></div>
+        <div className="task-list">{filteredTasks.map((task) => <TaskRow key={task.id} task={task} todayValue={dateRange.today} onEdit={(item) => { setEditingTask(item); setDialogOpen(true) }} onDelete={deleteTask} onStatusChange={changeStatus} />)}</div>
+      ) : tasks.length ? (
+        <div className="state-panel empty-panel"><div className="empty-icon">⌕</div><strong>No tasks match these filters</strong><p>Try changing the search, priority, due date, or status filters.</p><button className="button button-secondary" type="button" onClick={() => { setFilter('all'); setSearch(''); setPriorityFilter('all'); setDueFilter('all') }}>Clear filters</button></div>
       ) : (
         <div className="state-panel empty-panel"><div className="empty-icon">✓</div><strong>Your task list is clear</strong><p>Add a task to break your project into manageable steps.</p><button className="button button-secondary" type="button" onClick={() => { setEditingTask(null); setDialogOpen(true) }}>＋ Create a task</button></div>
       )}
