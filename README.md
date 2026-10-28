@@ -16,6 +16,7 @@ DevTrack is a student project and task tracking app built with React, Vite, Djan
 - Project and task data isolated per account
 - CSRF protection on account and data-changing requests
 - SQLite storage for local development
+- Production configuration for PostgreSQL, WhiteNoise static files, and Render Blueprint deployment
 - Django health endpoint at `/api/health/`
 
 ## Planned
@@ -23,6 +24,7 @@ DevTrack is a student project and task tracking app built with React, Vite, Djan
 - Advanced reporting and charts
 - Team workspaces
 - Password reset and email verification
+- Publish and verify the live demo
 
 Deleting a project also deletes its tasks.
 
@@ -59,3 +61,15 @@ The frontend is available at `http://127.0.0.1:5173/`; the API health endpoint i
 Create an account from the sign-in screen. DevTrack uses Django session cookies, so your browser stays signed in during development and each account only sees its own projects and tasks. Use a strong password; password reset and email verification are not implemented yet.
 
 For deployment, set a private `DJANGO_SECRET_KEY` environment variable. The checked-in fallback is only for local development.
+
+## Deploy a demo
+
+The repository includes a Render Blueprint and a multi-stage Dockerfile. Render builds the React bundle with Node.js, then serves it with Django from one origin so session cookies and CSRF protections work without cross-site frontend cookies. Docker is used by Render during deployment; it is not required on your Windows computer for local development.
+
+1. Create a PostgreSQL project on [Neon](https://neon.tech/) and copy its connection string. Keep the string private.
+2. In Render, create a new Blueprint from `Kafka-Firefly/DevTrack` on the `main` branch. The Blueprint uses Render's free web-service plan; no paid plan is selected in this repository.
+3. When Render asks for `DATABASE_URL`, paste the Neon connection string. The Blueprint generates `DJANGO_SECRET_KEY` and configures Django with debug mode off.
+4. Wait for the build and deploy to finish, then open the service URL. The health endpoint is `/api/health/`.
+5. Register a new account on the deployed app. Local SQLite accounts and projects are not copied to the production database.
+
+The free Render web service sleeps after 15 minutes without traffic, so its first request after idle can take about a minute. Neon Free projects can pause after a week of low activity; the database can be resumed from its dashboard. Render's own free PostgreSQL databases expire after 30 days, which is why this setup uses Neon for the database. These plan limits can change; check [Render free service limits](https://render.com/docs/free) and [Neon pricing](https://neon.com/pricing) before deploying. The `DATABASE_URL` stays out of this repository and is supplied privately in Render.

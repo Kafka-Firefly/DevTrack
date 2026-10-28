@@ -15,6 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import include, path
+from django.conf import settings
+from django.views.generic import TemplateView
 from .views import health
 from .auth_views import csrf_token, current_user, login_view, logout_view, register_view
 
@@ -28,3 +30,6 @@ urlpatterns = [
     path("api/", include("projects.urls")),
     path("api/", include("tasks.urls")),
 ]
+
+if (settings.VITE_BUILD_DIR / "index.html").exists():
+    urlpatterns.append(path("", TemplateView.as_view(template_name="index.html"), name="frontend"))

@@ -4,11 +4,12 @@ import { defineConfig } from 'vite'
 const backendTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:8000'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/static/' : '/',
   plugins: [react()],
   server: {
     proxy: {
       '/api': backendTarget,
     },
   },
-})
+}))
