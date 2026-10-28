@@ -8,14 +8,19 @@ DevTrack is a student project and task tracking app. This repository currently c
 - Create projects with a name, optional description, and optional target date
 - View, edit, and delete projects from the projects page
 - Django REST API to list and create projects at `/api/projects/`, and retrieve, update, or delete a project at `/api/projects/<id>/`
+- Create, view, edit, delete, and filter tasks by status
+- Set a task's project, status, priority, and optional due date
+- Django REST API for task list and detail operations at `/api/tasks/`
 - SQLite storage for local development
 - Django health endpoint at `/api/health/`
 
 ## Planned
 
-- Dashboard and task management
+- Dashboard and reporting
 - User registration and authentication
 - Team workspaces
+
+Deleting a project also deletes its tasks.
 
 ## Requirements
 

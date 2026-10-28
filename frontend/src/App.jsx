@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import TasksView from './TasksView'
 import './App.css'
 
 const PROJECTS_URL = '/api/projects/'
@@ -108,6 +109,7 @@ function ProjectDialog({ project, onClose, onSave }) {
 }
 
 function App() {
+  const [activePage, setActivePage] = useState(() => window.location.hash === '#tasks' ? 'tasks' : 'projects')
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [apiConnected, setApiConnected] = useState(false)
@@ -162,7 +164,7 @@ function App() {
   }
 
   async function deleteProject(project) {
-    if (!window.confirm(`Delete “${project.name}”? This action cannot be undone.`)) return
+    if (!window.confirm(`Delete “${project.name}” and all its tasks? This action cannot be undone.`)) return
     try {
       const response = await fetch(`${PROJECTS_URL}${project.id}/`, { method: 'DELETE' })
       if (!response.ok) throw new Error('The project could not be deleted. Please try again.')
@@ -176,7 +178,7 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="#projects" aria-label="DevTrack home">
+        <a className="brand" href="#projects" aria-label="DevTrack home" onClick={() => setActivePage('projects')}>
           <span className="brand-symbol">d</span>
           <span>devtrack</span>
           <span className="brand-beta">BETA</span>
@@ -193,11 +195,11 @@ function App() {
           <a className="nav-item" href="#overview" aria-disabled="true" onClick={(event) => event.preventDefault()}>
             <Icon name="grid" /><span>Overview</span><span className="nav-soon">Soon</span>
           </a>
-          <a className="nav-item active" href="#projects" aria-current="page">
+          <a className={`nav-item${activePage === 'projects' ? ' active' : ''}`} href="#projects" aria-current={activePage === 'projects' ? 'page' : undefined} onClick={() => setActivePage('projects')}>
             <Icon name="folder" /><span>Projects</span><span className="nav-count">{projects.length}</span>
           </a>
-          <a className="nav-item" href="#tasks" aria-disabled="true" onClick={(event) => event.preventDefault()}>
-            <Icon name="check" /><span>Tasks</span><span className="nav-soon">Soon</span>
+          <a className={`nav-item${activePage === 'tasks' ? ' active' : ''}`} href="#tasks" aria-current={activePage === 'tasks' ? 'page' : undefined} onClick={() => setActivePage('tasks')}>
+            <Icon name="check" /><span>Tasks</span>
           </a>
         </nav>
 
@@ -210,13 +212,13 @@ function App() {
         </div>
       </aside>
 
-      <main className="main-content" id="projects">
+      <main className="main-content" id={activePage}>
         <header className="topbar">
-          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>Projects</strong></div>
+          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{activePage === 'tasks' ? 'Tasks' : 'Projects'}</strong></div>
           <div className="topbar-right"><span className={`connection-state${apiConnected ? '' : ' disconnected'}`}><span /> {apiConnected ? 'API connected' : loading ? 'Connecting' : 'API offline'}</span><div className="topbar-avatar">Y</div></div>
         </header>
 
-        <div className="page-content">
+        {activePage === 'projects' ? <div className="page-content">
           <div className="page-heading-row">
             <div>
               <div className="eyebrow page-eyebrow">YOUR WORKSPACE</div>
@@ -259,7 +261,7 @@ function App() {
           )}
 
           <footer className="page-footer"><span>DevTrack</span><span>Built for thoughtful progress</span></footer>
-        </div>
+        </div> : <TasksView onOpenProjects={() => { setActivePage('projects'); window.location.hash = 'projects' }} />}
       </main>
 
       {dialogOpen && <ProjectDialog project={editingProject} onClose={() => setDialogOpen(false)} onSave={saveProject} />}

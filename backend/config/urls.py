@@ -20,4 +20,5 @@ from .views import health
 urlpatterns = [
     path("api/health/", health, name="health"),
     path("api/", include("projects.urls")),
+    path("api/", include("tasks.urls")),
 ]
