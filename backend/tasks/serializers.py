@@ -1,10 +1,17 @@
 from rest_framework import serializers
 
+from projects.models import Project
 from .models import Task
 
 
 class TaskSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source="project.name", read_only=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            self.fields["project"].queryset = Project.objects.filter(owner=request.user)
 
     class Meta:
         model = Task

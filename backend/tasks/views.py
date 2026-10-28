@@ -8,7 +8,7 @@ class TaskListCreateView(ListCreateAPIView):
     serializer_class = TaskSerializer
 
     def get_queryset(self):
-        queryset = Task.objects.select_related("project").all()
+        queryset = Task.objects.select_related("project").filter(project__owner=self.request.user)
         project_id = self.request.query_params.get("project")
         status = self.request.query_params.get("status")
         if project_id:
@@ -19,5 +19,7 @@ class TaskListCreateView(ListCreateAPIView):
 
 
 class TaskDetailView(RetrieveUpdateDestroyAPIView):
-    queryset = Task.objects.select_related("project").all()
     serializer_class = TaskSerializer
+
+    def get_queryset(self):
+        return Task.objects.select_related("project").filter(project__owner=self.request.user)

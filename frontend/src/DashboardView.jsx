@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { apiFetch } from './api'
 
 const PROJECTS_URL = '/api/projects/'
 const TASKS_URL = '/api/tasks/'
@@ -38,8 +39,8 @@ export default function DashboardView({ onOpenProjects, onOpenTasks }) {
   useEffect(() => {
     const controller = new AbortController()
     Promise.all([
-      fetch(PROJECTS_URL, { signal: controller.signal }),
-      fetch(TASKS_URL, { signal: controller.signal }),
+      apiFetch(PROJECTS_URL, { signal: controller.signal }),
+      apiFetch(TASKS_URL, { signal: controller.signal }),
     ])
       .then(async ([projectResponse, taskResponse]) => {
         if (!projectResponse.ok || !taskResponse.ok) throw new Error('Could not load your workspace summary.')

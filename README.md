@@ -12,14 +12,17 @@ DevTrack is a student project and task tracking app built with React, Vite, Djan
 - Set a task's project, status, priority, and optional due date
 - Django REST API for task list and detail operations at `/api/tasks/`
 - Workspace dashboard with project and task totals, overdue and upcoming tasks, status breakdown, and per-project completion
+- Username and password registration, login, session-based sign-in, and sign-out
+- Project and task data isolated per account
+- CSRF protection on account and data-changing requests
 - SQLite storage for local development
 - Django health endpoint at `/api/health/`
 
 ## Planned
 
 - Advanced reporting and charts
-- User registration and authentication
 - Team workspaces
+- Password reset and email verification
 
 Deleting a project also deletes its tasks.
 
@@ -51,6 +54,8 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-The API health endpoint is `http://127.0.0.1:8000/api/health/`.
+The frontend is available at `http://127.0.0.1:5173/`; the API health endpoint is `http://127.0.0.1:8000/api/health/`.
+
+Create an account from the sign-in screen. DevTrack uses Django session cookies, so your browser stays signed in during development and each account only sees its own projects and tasks. Use a strong password; password reset and email verification are not implemented yet.
 
 For deployment, set a private `DJANGO_SECRET_KEY` environment variable. The checked-in fallback is only for local development.

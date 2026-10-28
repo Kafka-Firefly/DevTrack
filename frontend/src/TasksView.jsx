@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { apiFetch } from './api'
 
 const TASKS_URL = '/api/tasks/'
 const PROJECTS_URL = '/api/projects/'
@@ -145,8 +146,8 @@ export default function TasksView({ onOpenProjects }) {
   useEffect(() => {
     const controller = new AbortController()
     Promise.all([
-      fetch(TASKS_URL, { signal: controller.signal }),
-      fetch(PROJECTS_URL, { signal: controller.signal }),
+      apiFetch(TASKS_URL, { signal: controller.signal }),
+      apiFetch(PROJECTS_URL, { signal: controller.signal }),
     ])
       .then(async ([taskResponse, projectResponse]) => {
         if (!taskResponse.ok || !projectResponse.ok) throw new Error('Could not load tasks and projects.')
@@ -169,7 +170,7 @@ export default function TasksView({ onOpenProjects }) {
 
   async function saveTask(data) {
     const url = editingTask ? `${TASKS_URL}${editingTask.id}/` : TASKS_URL
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: editingTask ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -182,7 +183,7 @@ export default function TasksView({ onOpenProjects }) {
 
   async function changeStatus(task, status) {
     try {
-      const response = await fetch(`${TASKS_URL}${task.id}/`, {
+      const response = await apiFetch(`${TASKS_URL}${task.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -199,7 +200,7 @@ export default function TasksView({ onOpenProjects }) {
   async function deleteTask(task) {
     if (!window.confirm(`Delete task “${task.title}”? This action cannot be undone.`)) return
     try {
-      const response = await fetch(`${TASKS_URL}${task.id}/`, { method: 'DELETE' })
+      const response = await apiFetch(`${TASKS_URL}${task.id}/`, { method: 'DELETE' })
       if (!response.ok) throw new Error('The task could not be deleted. Please try again.')
       setTasks((current) => current.filter((item) => item.id !== task.id))
       setActionError('')

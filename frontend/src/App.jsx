@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import DashboardView from './DashboardView'
 import TasksView from './TasksView'
+import AuthView from './AuthView'
+import { apiFetch, prepareCsrf } from './api'
 import './App.css'
 
 const PROJECTS_URL = '/api/projects/'
@@ -110,6 +112,9 @@ function ProjectDialog({ project, onClose, onSave }) {
 }
 
 function App() {
+  const [authUser, setAuthUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authError, setAuthError] = useState('')
   const [activePage, setActivePage] = useState(() => {
     const page = window.location.hash.slice(1)
     return ['overview', 'projects', 'tasks'].includes(page) ? page : 'projects'
@@ -124,8 +129,25 @@ function App() {
   const [actionError, setActionError] = useState('')
 
   useEffect(() => {
+    let active = true
+    prepareCsrf()
+      .then(() => fetch('/api/auth/me/', { credentials: 'same-origin' }))
+      .then(async (response) => {
+        if (response.status === 401) return null
+        if (!response.ok) throw new Error('无法检查登录状态。')
+        return response.json()
+      })
+      .then((user) => { if (active) setAuthUser(user) })
+      .catch((error) => { if (active) setAuthError(error.message) })
+      .finally(() => { if (active) setAuthLoading(false) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!authUser) return
     const controller = new AbortController()
-    fetch(PROJECTS_URL, { signal: controller.signal })
+    setLoading(true)
+    apiFetch(PROJECTS_URL, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error('The projects could not be loaded.')
         return response.json()
@@ -139,7 +161,20 @@ function App() {
       })
       .finally(() => setLoading(false))
     return () => controller.abort()
-  }, [])
+  }, [authUser])
+
+  async function signOut() {
+    try {
+      await prepareCsrf()
+      const response = await apiFetch('/api/auth/logout/', { method: 'POST' })
+      if (!response.ok) throw new Error('退出登录失败，请重试。')
+      setProjects([])
+      setAuthUser(null)
+      setApiConnected(false)
+    } catch (error) {
+      setActionError(error.message)
+    }
+  }
 
   useEffect(() => {
     function syncPageWithHash() {
@@ -158,7 +193,7 @@ function App() {
 
   async function saveProject(projectData) {
     const url = editingProject ? `${PROJECTS_URL}${editingProject.id}/` : PROJECTS_URL
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: editingProject ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(projectData),
@@ -179,7 +214,7 @@ function App() {
   async function deleteProject(project) {
     if (!window.confirm(`Delete “${project.name}” and all its tasks? This action cannot be undone.`)) return
     try {
-      const response = await fetch(`${PROJECTS_URL}${project.id}/`, { method: 'DELETE' })
+      const response = await apiFetch(`${PROJECTS_URL}${project.id}/`, { method: 'DELETE' })
       if (!response.ok) throw new Error('The project could not be deleted. Please try again.')
       setProjects((current) => current.filter((item) => item.id !== project.id))
       setActionError('')
@@ -187,6 +222,9 @@ function App() {
       setActionError(error.message || 'The project could not be deleted. Please try again.')
     }
   }
+
+  if (authLoading) return <div className="auth-loading"><span className="loading-spinner" />正在检查登录状态…</div>
+  if (!authUser) return <><AuthView onAuthenticated={(user) => { setAuthError(''); setAuthUser(user) }} />{authError && <div className="auth-global-error" role="alert">{authError}</div>}</>
 
   return (
     <div className="app-shell">
@@ -221,14 +259,14 @@ function App() {
           <strong>A little progress<br />adds up.</strong>
           <p>Your project space is ready when you are.</p>
           <div className="sidebar-note-line"><span /></div>
-          <div className="profile-row"><div className="profile-avatar">Y</div><div><strong>Your profile</strong><span>Local demo</span></div><span className="profile-menu">···</span></div>
+          <div className="profile-row"><div className="profile-avatar">{authUser.username.charAt(0).toUpperCase()}</div><div><strong>{authUser.username}</strong><span>Personal account</span></div><span className="profile-menu">···</span></div>
         </div>
       </aside>
 
       <main className="main-content" id={activePage}>
         <header className="topbar">
           <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{activePage === 'tasks' ? 'Tasks' : activePage === 'overview' ? 'Overview' : 'Projects'}</strong></div>
-          <div className="topbar-right"><span className={`connection-state${apiConnected ? '' : ' disconnected'}`}><span /> {apiConnected ? 'API connected' : loading ? 'Connecting' : 'API offline'}</span><div className="topbar-avatar">Y</div></div>
+          <div className="topbar-right"><span className={`connection-state${apiConnected ? '' : ' disconnected'}`}><span /> {apiConnected ? 'API connected' : loading ? 'Connecting' : 'API offline'}</span><div className="topbar-avatar">{authUser.username.charAt(0).toUpperCase()}</div><button className="signout-button" type="button" onClick={signOut}>退出登录</button></div>
         </header>
 
         {activePage === 'projects' ? <div className="page-content">
