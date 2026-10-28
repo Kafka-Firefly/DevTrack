@@ -1,6 +1,6 @@
 # DevTrack
 
-DevTrack is a student project and task tracking app. This repository currently contains the initial React + Vite frontend and Django REST backend setup.
+DevTrack is a student project and task tracking app built with React, Vite, Django REST Framework, and SQLite. It includes project and task management plus a workspace dashboard based on saved data.
 
 ## Implemented
 
