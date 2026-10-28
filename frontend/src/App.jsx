@@ -13,6 +13,8 @@ function Icon({ name, size = 18 }) {
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></>,
     arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
+    edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></>,
+    trash: <><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6" /></>,
   }
 
   return (
@@ -22,7 +24,7 @@ function Icon({ name, size = 18 }) {
   )
 }
 
-function ProjectCard({ project, index }) {
+function ProjectCard({ project, index, onEdit, onDelete }) {
   const colors = ['violet', 'blue', 'mint', 'amber']
   const dueDate = project.due_date
     ? new Date(`${project.due_date}T00:00:00`).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -41,16 +43,19 @@ function ProjectCard({ project, index }) {
       <div className="card-divider" />
       <div className="card-footer">
         <span className="due-date"><Icon name="calendar" size={15} /> {dueDate}</span>
-        <span className="card-arrow" aria-hidden="true"><Icon name="arrow" size={16} /></span>
+        <div className="card-actions">
+          <button className="card-action" type="button" onClick={() => onEdit(project)} aria-label={`Edit ${project.name}`} title="Edit project"><Icon name="edit" size={15} /></button>
+          <button className="card-action delete-action" type="button" onClick={() => onDelete(project)} aria-label={`Delete ${project.name}`} title="Delete project"><Icon name="trash" size={15} /></button>
+        </div>
       </div>
     </article>
   )
 }
 
-function ProjectDialog({ onClose, onCreate }) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [dueDate, setDueDate] = useState('')
+function ProjectDialog({ project, onClose, onSave }) {
+  const [name, setName] = useState(project?.name ?? '')
+  const [description, setDescription] = useState(project?.description ?? '')
+  const [dueDate, setDueDate] = useState(project?.due_date ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -59,7 +64,7 @@ function ProjectDialog({ onClose, onCreate }) {
     setSaving(true)
     setError('')
     try {
-      await onCreate({ name: name.trim(), description: description.trim(), due_date: dueDate || null })
+      await onSave({ name: name.trim(), description: description.trim(), due_date: dueDate || null })
       onClose()
     } catch (createError) {
       setError(createError.message || 'Could not create this project. Please try again.')
@@ -73,9 +78,9 @@ function ProjectDialog({ onClose, onCreate }) {
       <section className="project-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
         <div className="dialog-heading">
           <div>
-            <span className="eyebrow">NEW PROJECT</span>
-            <h2 id="dialog-title">Create a project</h2>
-            <p>Give your work a name and a place to grow.</p>
+            <span className="eyebrow">{project ? 'EDIT PROJECT' : 'NEW PROJECT'}</span>
+            <h2 id="dialog-title">{project ? 'Edit project' : 'Create a project'}</h2>
+            <p>{project ? 'Update the details for this project.' : 'Give your work a name and a place to grow.'}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close dialog"><Icon name="close" /></button>
         </div>
@@ -93,7 +98,7 @@ function ProjectDialog({ onClose, onCreate }) {
           <div className="dialog-actions">
             <button className="button button-secondary" type="button" onClick={onClose}>Cancel</button>
             <button className="button button-primary" type="submit" disabled={saving || !name.trim()}>
-              {saving ? 'Creating…' : 'Create project'}
+              {saving ? 'Saving…' : project ? 'Save changes' : 'Create project'}
             </button>
           </div>
         </form>
@@ -109,6 +114,8 @@ function App() {
   const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingProject, setEditingProject] = useState(null)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -134,9 +141,10 @@ function App() {
     return projects.filter((project) => `${project.name} ${project.description}`.toLowerCase().includes(query))
   }, [projects, search])
 
-  async function createProject(projectData) {
-    const response = await fetch(PROJECTS_URL, {
-      method: 'POST',
+  async function saveProject(projectData) {
+    const url = editingProject ? `${PROJECTS_URL}${editingProject.id}/` : PROJECTS_URL
+    const response = await fetch(url, {
+      method: editingProject ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(projectData),
     })
@@ -145,7 +153,24 @@ function App() {
       const message = result.name?.[0] || result.detail || 'Please check the project details and try again.'
       throw new Error(message)
     }
-    setProjects((current) => [result, ...current])
+    if (editingProject) {
+      setProjects((current) => current.map((project) => project.id === result.id ? result : project))
+    } else {
+      setProjects((current) => [result, ...current])
+    }
+    setActionError('')
+  }
+
+  async function deleteProject(project) {
+    if (!window.confirm(`Delete “${project.name}”? This action cannot be undone.`)) return
+    try {
+      const response = await fetch(`${PROJECTS_URL}${project.id}/`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('The project could not be deleted. Please try again.')
+      setProjects((current) => current.filter((item) => item.id !== project.id))
+      setActionError('')
+    } catch (error) {
+      setActionError(error.message || 'The project could not be deleted. Please try again.')
+    }
   }
 
   return (
@@ -198,7 +223,7 @@ function App() {
               <h1>Projects</h1>
               <p className="page-subtitle">A calm place to keep your ideas moving.</p>
             </div>
-            <button className="button button-primary create-button" type="button" onClick={() => setDialogOpen(true)}>
+            <button className="button button-primary create-button" type="button" onClick={() => { setEditingProject(null); setDialogOpen(true) }}>
               <Icon name="plus" size={17} /> New project
             </button>
           </div>
@@ -220,23 +245,24 @@ function App() {
             </label>
           </div>
 
+          {actionError && <p className="action-error" role="alert">{actionError}</p>}
           {loading ? (
             <div className="state-panel"><span className="loading-spinner" />Loading your projects…</div>
           ) : loadError ? (
             <div className="state-panel error-panel"><span className="state-icon">!</span><strong>We couldn’t reach your workspace</strong><p>{loadError}</p><button className="button button-secondary" type="button" onClick={() => window.location.reload()}>Try again</button></div>
           ) : filteredProjects.length > 0 ? (
-            <div className="project-grid">{filteredProjects.map((project, index) => <ProjectCard key={project.id} project={project} index={index} />)}</div>
+            <div className="project-grid">{filteredProjects.map((project, index) => <ProjectCard key={project.id} project={project} index={index} onEdit={(item) => { setEditingProject(item); setDialogOpen(true) }} onDelete={deleteProject} />)}</div>
           ) : search ? (
             <div className="state-panel empty-panel"><div className="empty-icon"><Icon name="search" size={23} /></div><strong>No projects match “{search}”</strong><p>Try another project name or description.</p></div>
           ) : (
-            <div className="state-panel empty-panel"><div className="empty-icon"><Icon name="folder" size={23} /></div><strong>Your first project starts here</strong><p>Create a project to give your work a clear home.</p><button className="button button-secondary" type="button" onClick={() => setDialogOpen(true)}><Icon name="plus" size={16} /> Create a project</button></div>
+            <div className="state-panel empty-panel"><div className="empty-icon"><Icon name="folder" size={23} /></div><strong>Your first project starts here</strong><p>Create a project to give your work a clear home.</p><button className="button button-secondary" type="button" onClick={() => { setEditingProject(null); setDialogOpen(true) }}><Icon name="plus" size={16} /> Create a project</button></div>
           )}
 
           <footer className="page-footer"><span>DevTrack</span><span>Built for thoughtful progress</span></footer>
         </div>
       </main>
 
-      {dialogOpen && <ProjectDialog onClose={() => setDialogOpen(false)} onCreate={createProject} />}
+      {dialogOpen && <ProjectDialog project={editingProject} onClose={() => setDialogOpen(false)} onSave={saveProject} />}
     </div>
   )
 }
