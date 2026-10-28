@@ -24,7 +24,10 @@ export default function AuthView({ onAuthenticated }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password }),
       })
-      const result = await response.json()
+      const contentType = response.headers.get('content-type') || ''
+      const result = contentType.includes('application/json')
+        ? await response.json()
+        : { detail: response.ok ? '服务器返回了无法识别的响应。' : `请求被服务器拒绝（${response.status}）。请确认开发服务器已重启后再试。` }
       if (!response.ok) throw new Error(result.username?.[0] || result.password?.[0] || result.detail || '无法完成请求，请重试。')
       onAuthenticated(result)
     } catch (submitError) {
